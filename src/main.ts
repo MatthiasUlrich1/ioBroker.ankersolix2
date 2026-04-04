@@ -936,7 +936,9 @@ export class Ankersolix2 extends Adapter {
                     typeof this.config.ControlMaxPowerOutput === 'number' ? this.config.ControlMaxPowerOutput : 800;
                 const cappedInputValue = value > configuredMaxPower ? configuredMaxPower : value;
                 const deviceMaxPowerCandidate =
-                    typeof powerLimit.max_power_limit === 'number' ? powerLimit.max_power_limit : powerLimit.all_power_limit;
+                    typeof powerLimit.max_power_limit === 'number'
+                        ? powerLimit.max_power_limit
+                        : powerLimit.all_power_limit;
                 const deviceMaxPower =
                     typeof deviceMaxPowerCandidate === 'number' && deviceMaxPowerCandidate > 0
                         ? deviceMaxPowerCandidate
