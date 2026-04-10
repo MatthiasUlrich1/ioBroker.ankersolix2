@@ -702,7 +702,23 @@ async setMode(status) {
                 const rawData = rawResponse.data.param_data;
                 const powerplan = JSON.parse(rawData);
                 const planMap = new Map();
-                const plan = adminui?.message?.table ? adminui.message.table : this.config.PowerPlan;
+                let plan = adminui?.message?.table;
+
+if (!plan && this.config.PowerPlan) {
+    try {
+        plan = typeof this.config.PowerPlan === "string"
+            ? JSON.parse(this.config.PowerPlan)
+            : this.config.PowerPlan;
+    } catch (e) {
+        this.log.error("PowerPlan JSON fehlerhaft");
+        return;
+    }
+}
+
+if (!Array.isArray(plan)) {
+    this.log.error("PowerPlan ist kein Array");
+    return;
+}
                 const validate = this.myfunc.hasTimeOverlap(plan);
                 if (!validate) {
                     for (const item of plan) {
