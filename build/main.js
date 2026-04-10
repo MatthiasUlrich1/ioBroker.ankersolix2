@@ -97,10 +97,19 @@ class Ankersolix2 extends adapter_core_1.Adapter {
             //this.terminate('Invalid configuration, please check instance settings', 400);
             return;
         }
-        if (this.config.EnableTimePlan && this.config.TimePlan.length > 0) {
-            const myTimePlan = this.config.TimePlan;
-            this.mySchedule.scheduleJobsTimeplan(myTimePlan);
-        }
+        if (this.config.EnableTimePlan) {
+    if (!Array.isArray(this.config.TimePlan)) {
+        this.log.warn("TimePlan ist kein Array – wird ignoriert");
+        return;
+    }
+
+    if (this.config.TimePlan.length === 0) {
+        this.log.warn("TimePlan ist leer");
+        return;
+    }
+
+    this.mySchedule.scheduleJobsTimeplan(this.config.TimePlan);
+}
         try {
             // create directory to store fetch data
             if (!fs_1.default.existsSync((0, adapter_core_1.getAbsoluteInstanceDataDir)(this))) {
