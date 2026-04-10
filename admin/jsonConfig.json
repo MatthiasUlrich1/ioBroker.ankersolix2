@@ -387,6 +387,35 @@
                     "lg": 4,
                     "xl": 4
                 },
+                "ControlMaxPowerOutput": {
+                "type": "number",
+                "label": {
+                "en": "Max Power Output",
+                "de": "Maximale Ausgangsleistung",
+                "ru": "Максимальная выходная мощность",
+                "pt": "Potência máxima de saída",
+                "nl": "Maximaal uitgangsvermogen",
+                "fr": "Puissance de sortie maximale",
+                "it": "Potenza massima in uscita",
+                "es": "Potencia máxima de salida",
+                "pl": "Maksymalna moc wyjściowa",
+                "uk": "Максимальна вихідна потужність",
+                "zh-cn": "最大输出功率"
+                },
+                "tooltip": {
+                "en": "Limits the maximum AC output power of the device.",
+                "de": "Begrenzt die maximale AC-Ausgangsleistung des Geräts."
+                },
+                "default": 800,
+                "min": 0,
+                "max": 4800,
+                "step": 10,
+                "xs": 12,
+                "sm": 12,
+                "md": 6,
+                "lg": 4,
+                "xl": 4
+            },
                 "HomeLoadID": {
                     "type": "objectId",
                     "label": "Select a data point that, f.e. indicates the house's consumption.",
