@@ -1000,7 +1000,7 @@ if (id === `${this.namespace}.control.mode` && state && !state.ack && this.isAdm
         this.log.warn(`Mode state value is not a number: ${value}`);
         return;
     }
-
+	this.log.warn(`STATE CHANGE: ${id} = ${state.val}`);
     this.log.info(`Mode geändert auf: ${value}`);
 
     switch (value) {
