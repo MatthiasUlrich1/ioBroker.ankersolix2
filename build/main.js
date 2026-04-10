@@ -689,6 +689,32 @@ async setMode(status) {
         this.apiConnection = status;
         this.setStateChangedAsync('info.apiconnection', { val: status, ack: true });
     }
+	async loadPowerPlanOnce() {
+    try {
+        const siteID = this.config.ControlSiteID.split('.')[2];
+
+        const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
+
+        if (!rawResponse?.data?.param_data) {
+            this.log.warn("Kein PowerPlan aus API erhalten");
+            return;
+        }
+
+        const parsed = JSON.parse(rawResponse.data.param_data);
+
+        if (!parsed) {
+            this.log.warn("PowerPlan leer");
+            return;
+        }
+
+        this.cachedPowerPlan = parsed;
+
+        this.log.info("PowerPlan erfolgreich geladen und gecached");
+
+    } catch (err) {
+        this.log.error(`loadPowerPlanOnce: ${err}`);
+    }
+}
     async setPowerPlan(options) {
         try {
             if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
@@ -700,7 +726,11 @@ async setMode(status) {
                 //ggf. prüfen ob extra Funktion
                 const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
                 const rawData = rawResponse.data.param_data;
-                const powerplan = JSON.parse(rawData);
+                const powerplan = this.cachedPowerPlan;
+					if (!powerplan) {
+ 		 	  		   this.log.warn("Kein gecachter PowerPlan vorhanden → lade neu");
+						await this.loadPowerPlanOnce();
+					}
                 const planMap = new Map();
                 let plan = adminui?.message?.table;
 
@@ -821,49 +851,29 @@ if (!Array.isArray(plan)) {
     }
 async setModeType(modeType) {
     try {
-        if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
-            this.loginData = await this.loginAPI();
+        if (!this.cachedPowerPlan) {
+            this.log.warn("Kein PowerPlan geladen – lade einmal nach");
+            await this.loadPowerPlanOnce();
         }
 
-        if (!this.loginData) return;
+        if (!this.cachedPowerPlan) {
+            this.log.error("PowerPlan weiterhin nicht verfügbar");
+            return;
+        }
 
-        this.setApiCon(true);
+        this.cachedPowerPlan.mode_type = modeType;
 
         const siteID = this.config.ControlSiteID.split('.')[2];
-
-        const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
-
-        if (!rawResponse?.data?.param_data) {
-            this.log.error("setModeType: param_data fehlt");
-            return;
-        }
-
-        let powerplan;
-        try {
-            powerplan = JSON.parse(rawResponse.data.param_data);
-        } catch (e) {
-            this.log.error("setModeType: JSON.parse fehlgeschlagen");
-            return;
-        }
-
-        if (!powerplan || typeof powerplan !== "object") {
-            this.log.error("setModeType: powerplan ungültig");
-            return;
-        }
-
-        powerplan.mode_type = modeType;
 
         await this.loggedInApi.setSiteDeviceParam(
             '6',
             siteID,
-            JSON.stringify(powerplan)
+            JSON.stringify(this.cachedPowerPlan)
         );
 
         this.log.info(`ModeType auf ${modeType} gesetzt.`);
-
     } catch (err) {
         this.log.error(`setModeType: ${err}`);
-        this.setApiCon(false);
     }
 }
     async setControlByAdapter(value) {
