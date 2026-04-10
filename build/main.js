@@ -741,6 +741,7 @@ async setMode(status) {
 
         // 👉 REST BLEIBT GLEICH
         const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
+		this.log.info(`RAW RESPONSE: ${JSON.stringify(rawResponse)}`);
         const rawData = rawResponse?.data?.param_data;
 
         if (!rawData) {
