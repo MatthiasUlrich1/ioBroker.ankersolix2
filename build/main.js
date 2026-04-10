@@ -101,31 +101,36 @@ class Ankersolix2 extends adapter_core_1.Adapter {
 
     let timePlan = this.config.TimePlan;
 
-    //  FALL 1: String → JSON parsen
+    // 🔥 nichts gesetzt → einfach still ignorieren
+    if (!timePlan) {
+        this.log.debug("TimePlan aktiviert, aber nicht vorhanden");
+        return;
+    }
+
+    // String → JSON
     if (typeof timePlan === "string") {
         try {
             timePlan = JSON.parse(timePlan);
         } catch (e) {
-            this.log.error("TimePlan JSON konnte nicht geparsed werden");
+            this.log.warn("TimePlan JSON ungültig");
             return;
         }
     }
 
-    //  FALL 2: Kein Array → abbrechen
+    // kein Array → ignorieren (kein Fehler!)
     if (!Array.isArray(timePlan)) {
-        this.log.warn("TimePlan ist kein Array – wird ignoriert");
+        this.log.debug("TimePlan ist kein Array → ignoriert");
         return;
     }
 
-    //  FALL 3: Leer
+    // leer → ignorieren
     if (timePlan.length === 0) {
-        this.log.warn("TimePlan ist leer");
+        this.log.debug("TimePlan ist leer → nichts zu tun");
         return;
     }
 
-    //  OK → verwenden
     this.mySchedule.scheduleJobsTimeplan(timePlan);
-    this.log.info("TimePlan erfolgreich geladen");
+    this.log.info("TimePlan aktiv gestartet");
 }
         try {
             // create directory to store fetch data
