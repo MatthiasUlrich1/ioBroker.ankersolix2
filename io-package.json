@@ -223,8 +223,7 @@
           "9": "controlbyadapter"
         }
       },
-      "native": {}
-    },
+      "native": {},
     {
       "_id": "control.ACLoading",
       "type": "state",
