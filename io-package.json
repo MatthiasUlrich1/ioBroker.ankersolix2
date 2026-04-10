@@ -211,17 +211,17 @@
         "read": true,
         "write": true,
         "states": {
-  "0": "unknown",
-  "1": "Automatisch",
-  "2": "Smart-Plug",
-  "3": "Benutzerdefiniert",
-  "4": "Backup",
-  "5": "Eco",
-  "6": "Smart-learning",
-  "7": "Smart-Mode",
-  "8": "time_slot",
-  "9": "controlbyadapter"
-}
+          "0": "unknown",
+          "1": "Automatisch",
+          "2": "Smart-Plug",
+          "3": "Benutzerdefiniert",
+          "4": "Backup",
+          "5": "Eco",
+          "6": "Smart-learning",
+          "7": "Smart-Mode",
+          "8": "time_slot",
+          "9": "controlbyadapter"
+        }
       },
       "native": {}
     {
