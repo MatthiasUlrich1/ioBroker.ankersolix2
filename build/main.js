@@ -726,7 +726,9 @@ async setMode(status) {
                         index: i,
                     }));
                     powerplan.mode_type = modus !== undefined ? modus : powerplan.mode_type; //1=Automatisch, 2=Blend, 3=Benutzerdefiniert, 4=Backup, 5=ECO, 6=Smart
-                    powerplan.custom_rate_plan = custom_rate_plan;
+                    if (custom_rate_plan !== undefined) {
+   			 powerplan.custom_rate_plan = custom_rate_plan;
+		    }
                     await this.loggedInApi.setSiteDeviceParam('6', siteID, JSON.stringify(powerplan));
                     if (adminui) {
                         //Wenn von AdminUI dann Callback
