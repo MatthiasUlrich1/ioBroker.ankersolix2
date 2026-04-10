@@ -803,28 +803,47 @@ async setMode(status) {
             this.setApiCon(false);
         }
     }
-async setModeType(modeType) {  
+async setModeType(modeType) {
     try {
         if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
             this.loginData = await this.loginAPI();
         }
 
-        if (this.loginData) {
-            this.setApiCon(true);
-            const siteID = this.config.ControlSiteID.split('.')[2];
+        if (!this.loginData) return;
 
-            //  aktuellen Plan holen
-            const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
-            const powerplan = JSON.parse(rawResponse.data.param_data);
+        this.setApiCon(true);
 
-            //  NUR Mode ändern
-            powerplan.mode_type = modeType;
+        const siteID = this.config.ControlSiteID.split('.')[2];
 
-            //  zurückschreiben
-            await this.loggedInApi.setSiteDeviceParam('6', siteID, JSON.stringify(powerplan));
+        const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
 
-            this.log.info(`ModeType auf ${modeType} gesetzt.`);
+        if (!rawResponse?.data?.param_data) {
+            this.log.error("setModeType: param_data fehlt");
+            return;
         }
+
+        let powerplan;
+        try {
+            powerplan = JSON.parse(rawResponse.data.param_data);
+        } catch (e) {
+            this.log.error("setModeType: JSON.parse fehlgeschlagen");
+            return;
+        }
+
+        if (!powerplan || typeof powerplan !== "object") {
+            this.log.error("setModeType: powerplan ungültig");
+            return;
+        }
+
+        powerplan.mode_type = modeType;
+
+        await this.loggedInApi.setSiteDeviceParam(
+            '6',
+            siteID,
+            JSON.stringify(powerplan)
+        );
+
+        this.log.info(`ModeType auf ${modeType} gesetzt.`);
 
     } catch (err) {
         this.log.error(`setModeType: ${err}`);
