@@ -433,7 +433,7 @@
                     "tooltip": "Limits the output set by the adapter, even if the source datapoint reports a higher demand.",
                     "default": 800,
                     "min": 0,
-                    "max": 800,
+                    "max": 4800,
                     "step": 10,
                     "hidden": "!data.EnableControlDP",
                     "xs": 12,
