@@ -134,6 +134,8 @@ class Ankersolix2 extends adapter_core_1.Adapter {
         if (this.config.AnalysisGrid || this.config.AnalysisHomeUsage || this.config.AnalysisSolarproduction) {
             this.refreshAnalysis();
         }
+		await this.loadPowerPlanOnce();
+await this.setMode(true);
     }
 
     /**
@@ -738,57 +740,79 @@ async setPowerPlan(options) {
         const { adminui, modus } = options ?? { adminui: null, modus: undefined };
         const siteID = this.config.ControlSiteID.split('.')[2];
 
-        // ==============================
-        // POWERPLAN QUELLE BESTIMMEN
-        // ==============================
+        let sourcePlan;
 
-        let powerplan = adminui?.message?.table;
-
-        if (!powerplan) {
+        // ==============================
+        // PLAN HERKUNFT BESTIMMEN
+        // ==============================
+        if (adminui?.message?.table) {
+            sourcePlan = adminui.message.table;
+        } else {
             if (!this.cachedPowerPlan) {
                 this.log.warn("Kein gecachter PowerPlan → lade einmal nach");
                 await this.loadPowerPlanOnce();
             }
 
-            powerplan = this.cachedPowerPlan?.custom_rate_plan;
+            sourcePlan = this.cachedPowerPlan?.custom_rate_plan;
         }
 
-        if (!Array.isArray(powerplan)) {
+        if (!Array.isArray(sourcePlan)) {
             this.log.error("PowerPlan ist kein Array");
             return;
         }
 
         const planMap = new Map();
 
-        const validate = this.myfunc.hasTimeOverlap(powerplan);
+        // ==============================
+        // 🔥 NORMALISIERUNG (WICHTIG!)
+        // ==============================
+        for (const entry of sourcePlan) {
 
-        if (validate) {
-            if (adminui?.callback) {
-                this.sendTo(adminui.from, adminui.command, { error: `${validate}` }, adminui.callback);
-            } else {
-                this.log.warn(`this.setPowerPlan: ${validate}`);
+            let weeks;
+            let ranges;
+
+            // 👉 FALL 1: AdminUI
+            if (entry.start_time) {
+                weeks = typeof entry.week === "string"
+                    ? entry.week.split(',').map(Number)
+                    : Array.isArray(entry.week)
+                        ? entry.week.map(Number)
+                        : [Number(entry.week)];
+
+                ranges = [{
+                    start_time: entry.start_time,
+                    end_time: entry.end_time,
+                    power: this.myfunc.rundeAufZehner(entry.power),
+                }];
             }
-            return;
-        }
 
-        for (const item of powerplan) {
-            const ranges = {
-                start_time: item.start_time,
-                end_time: item.end_time,
-                power: this.myfunc ? this.myfunc.rundeAufZehner(item.power) : item.power,
-            };
+            // 👉 FALL 2: Cloud
+            else if (entry.ranges) {
+                weeks = Array.isArray(entry.week)
+                    ? entry.week.map(Number)
+                    : [Number(entry.week)];
 
-            if (planMap.has(item.week)) {
-                planMap.get(item.week)?.ranges.push(ranges);
+                ranges = entry.ranges.map(r => ({
+                    start_time: r.start_time,
+                    end_time: r.end_time,
+                    power: this.myfunc.rundeAufZehner(r.power),
+                }));
+            }
+
+            else {
+                this.log.warn("Unbekanntes Planformat übersprungen");
+                continue;
+            }
+
+            const key = weeks.join(',');
+
+            if (planMap.has(key)) {
+                planMap.get(key).ranges.push(...ranges);
             } else {
-                planMap.set(item.week, {
+                planMap.set(key, {
                     index: 0,
-                    week: Array.isArray(item.week)
-   					 ? item.week.map(Number)
-  					 : typeof item.week === "string"
-    				    ? item.week.split(',').map(Number)
-     				    : [Number(item.week)],
-                    ranges: [ranges],
+                    week: weeks,
+                    ranges: ranges,
                 });
             }
         }
@@ -799,21 +823,25 @@ async setPowerPlan(options) {
         }));
 
         // ==============================
-        // CACHE + API UPDATE
+        // UPDATE
         // ==============================
-
-        if (this.cachedPowerPlan) {
-            this.cachedPowerPlan.mode_type =
-                modus !== undefined ? modus : this.cachedPowerPlan.mode_type;
-
-            this.cachedPowerPlan.custom_rate_plan = custom_rate_plan;
-
-            await this.loggedInApi.setSiteDeviceParam(
-                '6',
-                siteID,
-                JSON.stringify(this.cachedPowerPlan)
-            );
+        if (!this.cachedPowerPlan) {
+            this.log.error("Kein PowerPlan Cache vorhanden");
+            return;
         }
+
+        this.cachedPowerPlan.mode_type =
+            modus !== undefined ? modus : this.cachedPowerPlan.mode_type;
+
+        this.cachedPowerPlan.custom_rate_plan = custom_rate_plan;
+
+        await this.loggedInApi.setSiteDeviceParam(
+            '6',
+            siteID,
+            JSON.stringify(this.cachedPowerPlan)
+        );
+
+        this.log.info("PowerPlan erfolgreich gesetzt");
 
         if (adminui?.callback) {
             this.sendTo(adminui.from, adminui.command, { result: 'OK' }, adminui.callback);
