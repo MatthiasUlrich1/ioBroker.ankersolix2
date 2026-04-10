@@ -201,6 +201,26 @@
       },
       "native": {}
     },
+       {
+      "_id": "control.mode",
+      "type": "state",
+      "common": {
+        "name": "Control Mode",
+        "type": "number",
+        "role": "level",
+        "read": true,
+        "write": true,
+        "states": { 
+        "1":"Automatisch",
+        "2":"Blend",
+        "3":"Benutzerdefiniert",
+        "4":"Backup",
+        "5":"Eco",
+        "6":"intelligent",
+        "7":"Smart-Mode"        
+        }
+      },
+      "native": {}
     {
       "_id": "control.ACLoading",
       "type": "state",
