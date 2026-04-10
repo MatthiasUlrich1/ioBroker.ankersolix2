@@ -113,6 +113,7 @@ class Ankersolix2 extends adapter_core_1.Adapter {
             return;
         }
         this.loginData = await this.loginAPI();
+		this.subscribeStates('control.mode');
         if (typeof this.config.HomeLoadID === 'string' && this.config.HomeLoadID.trim() !== '') {
             if (this.config.EnableControlDP) {
                 this.setHomeLoadID(true);
