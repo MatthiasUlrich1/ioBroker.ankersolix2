@@ -98,17 +98,34 @@ class Ankersolix2 extends adapter_core_1.Adapter {
             return;
         }
         if (this.config.EnableTimePlan) {
-    if (!Array.isArray(this.config.TimePlan)) {
+
+    let timePlan = this.config.TimePlan;
+
+    //  FALL 1: String → JSON parsen
+    if (typeof timePlan === "string") {
+        try {
+            timePlan = JSON.parse(timePlan);
+        } catch (e) {
+            this.log.error("TimePlan JSON konnte nicht geparsed werden");
+            return;
+        }
+    }
+
+    //  FALL 2: Kein Array → abbrechen
+    if (!Array.isArray(timePlan)) {
         this.log.warn("TimePlan ist kein Array – wird ignoriert");
         return;
     }
 
-    if (this.config.TimePlan.length === 0) {
+    //  FALL 3: Leer
+    if (timePlan.length === 0) {
         this.log.warn("TimePlan ist leer");
         return;
     }
 
-    this.mySchedule.scheduleJobsTimeplan(this.config.TimePlan);
+    //  OK → verwenden
+    this.mySchedule.scheduleJobsTimeplan(timePlan);
+    this.log.info("TimePlan erfolgreich geladen");
 }
         try {
             // create directory to store fetch data
