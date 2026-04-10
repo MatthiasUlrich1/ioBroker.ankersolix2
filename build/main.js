@@ -725,24 +725,29 @@ async setMode(status) {
                 const siteID = this.config.ControlSiteID.split('.')[2];
                 //ggf. prüfen ob extra Funktion
                 const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
-                const rawData = rawResponse.data.param_data;
-                const powerplan = this.cachedPowerPlan;
-					if (!powerplan) {
- 		 	  		   this.log.warn("Kein gecachter PowerPlan vorhanden → lade neu");
-						await this.loadPowerPlanOnce();
-					}
-                const planMap = new Map();
-                let plan = adminui?.message?.table;
+const rawData = rawResponse?.data?.param_data;
 
-if (!plan && this.config.PowerPlan) {
-    try {
-        plan = typeof this.config.PowerPlan === "string"
-            ? JSON.parse(this.config.PowerPlan)
-            : this.config.PowerPlan;
-    } catch (e) {
-        this.log.error("PowerPlan JSON fehlerhaft");
-        return;
-    }
+if (!rawData) {
+    this.log.warn("PowerPlan leer von API");
+    return;
+}
+
+let parsed;
+try {
+    parsed = JSON.parse(rawData);
+} catch (e) {
+    this.log.error("PowerPlan JSON ungültig");
+    return;
+}
+
+// 🔥 HIER IST SCHRITT 1
+if (!parsed.custom_rate_plan || !Array.isArray(parsed.custom_rate_plan)) {
+    parsed.custom_rate_plan = [];
+}
+
+this.cachedPowerPlan = parsed;
+
+this.log.info("PowerPlan erfolgreich geladen und normalisiert");
 }
 
 if (!Array.isArray(plan)) {
