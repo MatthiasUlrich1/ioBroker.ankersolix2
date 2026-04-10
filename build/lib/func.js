@@ -18,14 +18,14 @@ class MyFunc {
      * @param max
      * @returns
      */
-    rundeAufZehner(value, max = 800) {
+    rundeAufZehner(value, max = 4800) {
         //wenn negativ dann 0
         if (value < 0) {
             return 0;
         }
         const val = Math.round(value / 10) * 10;
         if (val > max) {
-            //max 800W Einspeisung
+            //max 4800W Einspeisung
             return max;
         }
         return val;
