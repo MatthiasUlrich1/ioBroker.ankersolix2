@@ -783,7 +783,11 @@ async setPowerPlan(options) {
             } else {
                 planMap.set(item.week, {
                     index: 0,
-                    week: item.week.split(',').map(Number),
+                    week: Array.isArray(item.week)
+   					 ? item.week.map(Number)
+  					 : typeof item.week === "string"
+    				    ? item.week.split(',').map(Number)
+     				    : [Number(item.week)],
                     ranges: [ranges],
                 });
             }
