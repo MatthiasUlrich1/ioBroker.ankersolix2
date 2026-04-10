@@ -904,6 +904,7 @@ async setPowerPlan(options) {
                 const acdevice = siteDetails.data.solarbank_list.find((device) => this.myfunc.isACLoading(device.device_pn));
                 if (acdevice) {
                     const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
+					this.log.info(`RAW RESPONSE: ${JSON.stringify(rawResponse)}`);
                     const rawData = rawResponse.data.param_data;
                     const getpowerplan = JSON.parse(rawData);
                     let start_time;
