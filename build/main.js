@@ -693,10 +693,23 @@ async setMode(status) {
     }
 	async loadPowerPlanOnce() {
     try {
-        const siteID = this.config.ControlSiteID.split('.')[2];
+        // ✅ SAFETY CHECK
+        if (!this.config.ControlSiteID || typeof this.config.ControlSiteID !== 'string') {
+            this.log.error("ControlSiteID fehlt oder ist ungültig");
+            return;
+        }
 
+        const parts = this.config.ControlSiteID.split('.');
+
+        if (parts.length < 3) {
+            this.log.error(`ControlSiteID hat falsches Format: ${this.config.ControlSiteID}`);
+            return;
+        }
+
+        const siteID = parts[2];
+
+        // 👉 REST BLEIBT GLEICH
         const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
-
         const rawData = rawResponse?.data?.param_data;
 
         if (!rawData) {
@@ -709,11 +722,6 @@ async setMode(status) {
             parsed = JSON.parse(rawData);
         } catch (err) {
             this.log.error("PowerPlan JSON ungültig");
-            return;
-        }
-
-        if (!parsed) {
-            this.log.warn("PowerPlan leer");
             return;
         }
 
