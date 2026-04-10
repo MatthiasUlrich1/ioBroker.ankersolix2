@@ -166,7 +166,7 @@
     "Password": "",
     "Username": "",
     "API_Server": "https://ankerpower-api-eu.anker.com",
-    "ControlMaxPowerOutput": 800
+    "ControlMaxPowerOutput": 4800
   },
   "encryptedNative": [
     "Password"
