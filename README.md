@@ -17,6 +17,8 @@ Integrate Anker Solix 2
 
 ## Description
 
+Achtung Benutzung auf eigene Gefahr. Änderungen am Code sind laienhaft und mit KI erstellt. Es handelt sich nicht um eine saubere Integration
+
 This project is derived from https://github.com/tomquist/solix2mqtt and brings information from the anker api directly into ioBroker.
 
 ## Supported Devices
