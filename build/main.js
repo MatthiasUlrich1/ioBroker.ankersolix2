@@ -126,12 +126,15 @@ class Ankersolix2 extends adapter_core_1.Adapter {
                     this.setPowerPlan();
                 }
             }
+	// Mode Steuerung aktivieren
+	await this.setMode(true);
         }
         this.refreshDate();
         if (this.config.AnalysisGrid || this.config.AnalysisHomeUsage || this.config.AnalysisSolarproduction) {
             this.refreshAnalysis();
         }
     }
+
     /**
      * Steuert das abonnieren und deabonnieren des HomeLoadID States
      *
@@ -143,18 +146,29 @@ class Ankersolix2 extends adapter_core_1.Adapter {
             this.subscribeForeignStates(`${this.config.HomeLoadID}`);
             if (timeplan) {
                 const state = await this.getForeignStateAsync(`${this.config.HomeLoadID}`);
-                const value = state?.val;
-                if (typeof value === 'number') {
-                    await this.setControlByAdapter(value);
-                }
-                else {
-                    this.log.warn(`HomeLoadID timeplan value is not a number: ${value}`);
-                }
+                const value = state ? state.val : 0;
+                this.setForeignState(`${this.config.HomeLoadID}`, { val: value, ack: true });
             }
             return;
         }
         this.unsubscribeForeignStates(`${this.config.HomeLoadID}`);
     }
+async setMode(status) {
+    if (status) {
+        // abonnieren, damit onStateChange reagiert
+        this.subscribeForeignStates(`${this.namespace}.control.mode`);
+
+        // aktuellen Wert abholen und ack setzen
+        const state = await this.getForeignStateAsync(`${this.namespace}.control.mode`);
+        const value = state ? state.val : 3; // Default: 3 = Benutzerdefiniert
+        this.setForeignState(`${this.namespace}.control.mode`, { val: value, ack: true });
+
+        return;
+    }
+
+    // wenn status false, wieder abmelden
+    this.unsubscribeForeignStates(`${this.namespace}.control.mode`);
+}
     validateAdapterConfig(config) {
         const errors = [];
         if (!config.Username || !config.Password) {
@@ -169,11 +183,6 @@ class Ankersolix2 extends adapter_core_1.Adapter {
         }
         if (!config.COUNTRY && !config.COUNTRY2) {
             errors.push('Country missing');
-        }
-        const controlMaxPowerOutput = config?.ControlMaxPowerOutput;
-        if (controlMaxPowerOutput !== undefined &&
-            (typeof controlMaxPowerOutput !== 'number' || controlMaxPowerOutput < 0 || controlMaxPowerOutput > 800)) {
-            errors.push('Maximum power output for adapter control must be between 0 and 800 watts');
         }
         if (errors.length > 0) {
             errors.forEach(err => this.log.error(`${err} - please check instance configuration of ${this.namespace}`));
@@ -793,6 +802,34 @@ class Ankersolix2 extends adapter_core_1.Adapter {
             this.setApiCon(false);
         }
     }
+async setModeType(modeType) {  
+    try {
+        if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
+            this.loginData = await this.loginAPI();
+        }
+
+        if (this.loginData) {
+            this.setApiCon(true);
+            const siteID = this.config.ControlSiteID.split('.')[2];
+
+            //  aktuellen Plan holen
+            const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
+            const powerplan = JSON.parse(rawResponse.data.param_data);
+
+            //  NUR Mode ändern
+            powerplan.mode_type = modeType;
+
+            //  zurückschreiben
+            await this.loggedInApi.setSiteDeviceParam('6', siteID, JSON.stringify(powerplan));
+
+            this.log.info(`ModeType auf ${modeType} gesetzt.`);
+        }
+
+    } catch (err) {
+        this.log.error(`setModeType: ${err}`);
+        this.setApiCon(false);
+    }
+}
     async setControlByAdapter(value) {
         try {
             if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
@@ -802,20 +839,12 @@ class Ankersolix2 extends adapter_core_1.Adapter {
                 this.setApiCon(true);
                 const siteID = this.config.ControlSiteID.split('.')[2];
                 const { data: powerLimit } = await this.loggedInApi.getPowerLimit(siteID);
-                const configuredMaxPower = typeof this.config.ControlMaxPowerOutput === 'number' ? this.config.ControlMaxPowerOutput : 800;
-                const cappedInputValue = value > configuredMaxPower ? configuredMaxPower : value;
-                const deviceMaxPowerCandidate = typeof powerLimit.max_power_limit === 'number' ? powerLimit.max_power_limit : powerLimit.all_power_limit;
-                const deviceMaxPower = typeof deviceMaxPowerCandidate === 'number' && deviceMaxPowerCandidate > 0
-                    ? deviceMaxPowerCandidate
-                    : configuredMaxPower;
-                const normalizedInputValue = Math.max(cappedInputValue, 0);
-                const targetPower = this.myfunc.rundeAufZehner(normalizedInputValue, deviceMaxPower);
+                const roundedValue = this.myfunc.rundeAufZehner(value, powerLimit.max_power_limit);
+                /**/
                 const jsonstring = '{"mode_type":3,"custom_rate_plan":[{"index":0,"week":[0,1,2,3,4,5,6],"ranges":[{"start_time":"00:00","end_time":"24:00","power":400}]}],"blend_plan":null,"default_home_load":200,"max_load":800,"min_load":0,"step":10}';
                 const config = JSON.parse(jsonstring);
                 config.mode_type = 3; //3 = Benutzerdefiniert Modus
-                config.default_home_load = targetPower;
-                config.custom_rate_plan[0].ranges[0].power = targetPower;
-                this.log.debug(`setControlByAdapter: input=${value} cappedInput=${cappedInputValue} normalizedInput=${normalizedInputValue} configuredMax=${configuredMaxPower} deviceMaxCandidate=${deviceMaxPowerCandidate} deviceMax=${deviceMaxPower} target=${targetPower}`);
+                config.custom_rate_plan[0].ranges[0].power = roundedValue; //
                 await this.loggedInApi.setSiteDeviceParam('6', siteID, JSON.stringify(config));
             }
         }
@@ -949,13 +978,7 @@ class Ankersolix2 extends adapter_core_1.Adapter {
      * Is called if a subscribed state changes
      */
     onStateChange(id, state) {
-        if (!state) {
-            return;
-        }
         if (id === `${this.config.HomeLoadID}` && this.config.EnableControlDP && this.isAdmin) {
-            if (!state.ack) {
-                return;
-            }
             //this.log.info(`HomeLoadID state changed: ${id} - ${JSON.stringify(state)}`);
             const value = state?.val;
             if (typeof value !== 'number') {
@@ -966,10 +989,63 @@ class Ankersolix2 extends adapter_core_1.Adapter {
                 this.setControlByAdapter(value);
             }
         }
+// --- Mode-State ---
+if (id === `${this.namespace}.control.mode` && state && !state.ack && this.isAdmin) {
+
+    const value = state.val;
+
+    if (typeof value !== 'number') {
+        this.log.warn(`Mode state value is not a number: ${value}`);
+        return;
+    }
+
+    this.log.info(`Mode geändert auf: ${value}`);
+
+    switch (value) {
+        case 1: // Smartmeter
+            this.setPowerPlan({ modus: 1 });
+            break;
+
+        case 2: // ggf. Blend (falls unterstützt)
+            this.setPowerPlan({ modus: 2 });
+            break;
+
+        case 3: // Custom
+            this.setPowerPlan({ modus: 3 });
+            break;
+
+        case 4: // Backup (AC Laden)
+            this.setACLoading(true);
+            break;
+
+        case 5: // Eco (optional)
+            this.setPowerPlan({ modus: 5 });
+            break;
+
+        case 6: // Smart learning
+            this.setPowerPlan({ modus: 6 });
+            break;
+
+	case 7: // Smart (optional)
+            this.setPowerPlan({ modus: 7 });
+            break;
+
+	case 8: // time_slot
+            this.setPowerPlan({ modus: value });
+            break;
+
+	case 9: // controlbyadapter ❗
+            this.setHomeLoadID(true, true);
+            this.log.info(`Adapter übernimmt Steuerung`);
+            break;
+
+
+        default:
+            this.log.warn(`Unbekannter Mode: ${value}`);
+    }
+}
+// --- Mode-State Ende ---
         if (id === `${this.namespace}.control.ACLoading` && this.isAdmin) {
-            if (state.ack) {
-                return;
-            }
             //this.log.info(`setACLoading state changed: ${id} - ${JSON.stringify(state)}`);
             const value = state?.val;
             if (typeof value !== 'boolean') {
@@ -980,9 +1056,6 @@ class Ankersolix2 extends adapter_core_1.Adapter {
             }
         }
         if (id === `${this.namespace}.control.SetPowerplan` && this.isAdmin) {
-            if (state.ack) {
-                return;
-            }
             //this.log.info(`setPowerplan state changed: ${id} - ${JSON.stringify(state)}`);
             const value = state?.val;
             if (typeof value !== 'boolean') {
