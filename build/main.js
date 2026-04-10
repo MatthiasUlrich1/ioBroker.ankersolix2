@@ -695,16 +695,28 @@ async setMode(status) {
 
         const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
 
-        if (!rawResponse?.data?.param_data) {
+        const rawData = rawResponse?.data?.param_data;
+
+        if (!rawData) {
             this.log.warn("Kein PowerPlan aus API erhalten");
             return;
         }
 
-        const parsed = JSON.parse(rawResponse.data.param_data);
+        let parsed;
+        try {
+            parsed = JSON.parse(rawData);
+        } catch (err) {
+            this.log.error("PowerPlan JSON ungültig");
+            return;
+        }
 
         if (!parsed) {
             this.log.warn("PowerPlan leer");
             return;
+        }
+
+        if (!Array.isArray(parsed.custom_rate_plan)) {
+            parsed.custom_rate_plan = [];
         }
 
         this.cachedPowerPlan = parsed;
@@ -715,97 +727,99 @@ async setMode(status) {
         this.log.error(`loadPowerPlanOnce: ${err}`);
     }
 }
-    async setPowerPlan(options) {
-        try {
-            if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
-                this.loginData = await this.loginAPI();
+async setPowerPlan(options) {
+    try {
+        if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
+            this.loginData = await this.loginAPI();
+        }
+
+        if (!this.loginData) return;
+
+        const { adminui, modus } = options ?? { adminui: null, modus: undefined };
+        const siteID = this.config.ControlSiteID.split('.')[2];
+
+        // ==============================
+        // POWERPLAN QUELLE BESTIMMEN
+        // ==============================
+
+        let powerplan = adminui?.message?.table;
+
+        if (!powerplan) {
+            if (!this.cachedPowerPlan) {
+                this.log.warn("Kein gecachter PowerPlan → lade einmal nach");
+                await this.loadPowerPlanOnce();
             }
-            if (this.loginData) {
-                const { adminui, modus } = options ? options : { adminui: null, modus: undefined };
-                const siteID = this.config.ControlSiteID.split('.')[2];
-                //ggf. prüfen ob extra Funktion
-                const rawResponse = await this.loggedInApi.getSiteDeviceParam('6', siteID);
-const rawData = rawResponse?.data?.param_data;
 
-if (!rawData) {
-    this.log.warn("PowerPlan leer von API");
-    return;
-}
+            powerplan = this.cachedPowerPlan?.custom_rate_plan;
+        }
 
-let parsed;
-try {
-    parsed = JSON.parse(rawData);
-} catch (e) {
-    this.log.error("PowerPlan JSON ungültig");
-    return;
-}
+        if (!Array.isArray(powerplan)) {
+            this.log.error("PowerPlan ist kein Array");
+            return;
+        }
 
-// 🔥 HIER IST SCHRITT 1
-if (!parsed.custom_rate_plan || !Array.isArray(parsed.custom_rate_plan)) {
-    parsed.custom_rate_plan = [];
-}
+        const planMap = new Map();
 
-this.cachedPowerPlan = parsed;
+        const validate = this.myfunc.hasTimeOverlap(powerplan);
 
-this.log.info("PowerPlan erfolgreich geladen und normalisiert");
-}
+        if (validate) {
+            if (adminui?.callback) {
+                this.sendTo(adminui.from, adminui.command, { error: `${validate}` }, adminui.callback);
+            } else {
+                this.log.warn(`this.setPowerPlan: ${validate}`);
+            }
+            return;
+        }
 
-if (!Array.isArray(plan)) {
-    this.log.error("PowerPlan ist kein Array");
-    return;
-}
-                const validate = this.myfunc.hasTimeOverlap(plan);
-                if (!validate) {
-                    for (const item of plan) {
-                        const ranges = {
-                            start_time: item.start_time,
-                            end_time: item.end_time,
-                            power: this.myfunc ? this.myfunc.rundeAufZehner(item.power) : item.power,
-                        };
-                        if (planMap.has(item.week)) {
-                            planMap.get(item.week)?.ranges.push(ranges);
-                        }
-                        else {
-                            planMap.set(item.week, {
-                                index: 0,
-                                week: item.week.split(',').map(Number),
-                                ranges: [ranges],
-                            });
-                        }
-                    }
-                    const custom_rate_plan = Array.from(planMap.values()).map((plan, i) => ({
-                        ...plan,
-                        index: i,
-                    }));
-                    powerplan.mode_type = modus !== undefined ? modus : powerplan.mode_type; //1=Automatisch, 2=Blend, 3=Benutzerdefiniert, 4=Backup, 5=ECO, 6=Smart
-                    powerplan.custom_rate_plan = custom_rate_plan;
-                    await this.loggedInApi.setSiteDeviceParam('6', siteID, JSON.stringify(powerplan));
-                    if (adminui) {
-                        //Wenn von AdminUI dann Callback
-                        if (adminui.callback) {
-                            this.sendTo(adminui.from, adminui.command, { result: 'OK' }, adminui.callback);
-                        }
-                    }
-                }
-                else {
-                    if (adminui) {
-                        //Wenn von AdminUI dann Callback mit Fehlermeldung
-                        if (adminui.callback) {
-                            this.sendTo(adminui.from, adminui.command, { error: `${validate}` }, adminui.callback);
-                        }
-                    }
-                    else {
-                        this.log.warn(`this.setPowerPlan: ${validate} `);
-                    }
-                }
+        for (const item of powerplan) {
+            const ranges = {
+                start_time: item.start_time,
+                end_time: item.end_time,
+                power: this.myfunc ? this.myfunc.rundeAufZehner(item.power) : item.power,
+            };
+
+            if (planMap.has(item.week)) {
+                planMap.get(item.week)?.ranges.push(ranges);
+            } else {
+                planMap.set(item.week, {
+                    index: 0,
+                    week: item.week.split(',').map(Number),
+                    ranges: [ranges],
+                });
             }
         }
-        catch (err) {
-            this.log.error(`setPowerPlan: ${err}`);
-            this.log.debug(`Error Object: ${JSON.stringify(err)}`);
-            this.setApiCon(false);
+
+        const custom_rate_plan = Array.from(planMap.values()).map((plan, i) => ({
+            ...plan,
+            index: i,
+        }));
+
+        // ==============================
+        // CACHE + API UPDATE
+        // ==============================
+
+        if (this.cachedPowerPlan) {
+            this.cachedPowerPlan.mode_type =
+                modus !== undefined ? modus : this.cachedPowerPlan.mode_type;
+
+            this.cachedPowerPlan.custom_rate_plan = custom_rate_plan;
+
+            await this.loggedInApi.setSiteDeviceParam(
+                '6',
+                siteID,
+                JSON.stringify(this.cachedPowerPlan)
+            );
         }
+
+        if (adminui?.callback) {
+            this.sendTo(adminui.from, adminui.command, { result: 'OK' }, adminui.callback);
+        }
+
+    } catch (err) {
+        this.log.error(`setPowerPlan: ${err}`);
+        this.setApiCon(false);
     }
+}
     async setACLoading(status) {
         try {
             if (!this.myfunc.isLoginValid(this.loginData) || this.loginData?.email != this.config.Username) {
