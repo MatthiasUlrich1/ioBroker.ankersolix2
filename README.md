@@ -77,7 +77,7 @@ If you have erros again and cant login, stop the adapter and delete the session.
 
 ### 2.4.2 (2025-04-12)
 - (MatthiasUlrich1) integration of object control.mode for controlling the mode of the Anker system manual or by script.
-- (MatthiasUlrich1) increased MaxPowerOutput Limit zo 4800W for using Power Dock -> adjustable in adminui.
+- (MatthiasUlrich1) increased MaxPowerOutput Limit to 4800W for using Power Dock -> adjustable in adminui.
    !!!Warning!!! Use at your own risk. Modifications to the code are amateurish and created with AI. This is not a clean integration.
    !!!Achtung!!! Benutzung auf eigene Gefahr. Änderungen am Code sind laienhaft und mit KI erstellt. Es handelt sich nicht um eine saubere Integration.
 
