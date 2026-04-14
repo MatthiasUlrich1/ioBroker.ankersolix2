@@ -17,7 +17,6 @@ Integrate Anker Solix 2
 
 ## Description
 
-Achtung Benutzung auf eigene Gefahr. Änderungen am Code sind laienhaft und mit KI erstellt. Es handelt sich nicht um eine saubere Integration
 
 This project is derived from https://github.com/tomquist/solix2mqtt and brings information from the anker api directly into ioBroker.
 
@@ -75,6 +74,12 @@ If you have erros again and cant login, stop the adapter and delete the session.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### 2.4.2 (2025-04-12)
+- (MatthiasUlrich1) integration of object control.mode for controlling the mode of the Anker system manual or by script.
+- (MatthiasUlrich1) increased MaxPowerOutput Limit zo 4800W for using Power Dock -> adjustable in adminui.
+   !!!Warning!!! Use at your own risk. Modifications to the code are amateurish and created with AI. This is not a clean integration.
+   !!!Achtung!!! Benutzung auf eigene Gefahr. Änderungen am Code sind laienhaft und mit KI erstellt. Es handelt sich nicht um eine saubere Integration.
 
 ### 2.4.1 (2025-10-09)
 
